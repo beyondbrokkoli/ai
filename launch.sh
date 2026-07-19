@@ -1,1 +1,1 @@
-/home/halim/llama.cpp/build/bin/llama-server -m /mnt/DeepSeek-R1-Distill-Llama-8B-Q5_K_M.gguf -ngl 99 -c 16384 -np 1 -n -1 -ctk q8_0 -ctv q8_0 -b 1024 -t 6 --repeat-penalty 1.15 --slots --host 0.0.0.0 --port 8080 --api-key YOUR_SECRET_TOKEN
+/home/halim/llama.cpp/build/bin/llama-server -m /mnt/DeepSeek-R1-Distill-Llama-8B-Q5_K_M.gguf -ngl 99 -c 16384 -np 1 -n -1 -ctk q8_0 -ctv q8_0 -b 1024 -t 6 --repeat-penalty 1.15 --host 10.0.0.2 --port 8080 --api-key YOUR_SECRET_TOKEN
