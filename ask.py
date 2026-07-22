@@ -1,38 +1,21 @@
 import sys
-import requests
+import google.generativeai as genai
 from qdrant_client import QdrantClient
 
 # --- Config ---
 QDRANT_URL = "http://localhost:6333"
 COLLECTION_NAME = "weaver_stable"
 
-NOMIC_URL = "http://10.0.0.2:8081/v1/embeddings"
-DEEPSEEK_URL = "http://10.0.0.2:8080/v1/chat/completions"
-API_KEY = "TEST1234"
-
+genai.configure(api_key="YOUR_GEMINI_API_KEY")
 client = QdrantClient(url=QDRANT_URL)
 
 def get_query_vector(text):
-    response = client.models.embed_content(
-        model="text-embedding-004",
-        contents=text,
-        config=dict(task_type="RETRIEVAL_QUERY")
+    result = genai.embed_content(
+        model="models/text-embedding-004",
+        content=text,
+        task_type="retrieval_query"
     )
-    return response.embeddings[0].values
-
-def ask_gemini(query, context):
-    # Using the latest 3.5-flash model for strict coding logic
-    prompt = f"RETRIEVED CODE CONTEXT:\n{context}\n\nUSER QUESTION:\n{query}"
-
-    response = client.models.generate_content(
-        model='gemini-3.5-flash',
-        contents=prompt,
-        config=dict(
-            system_instruction="You are an expert C/Lua engine developer. Use the provided code context to answer the user's question accurately and concisely.",
-            temperature=0.2
-        )
-    )
-    return response.text
+    return result['embedding']
 
 def search_codebase(query, limit=3):
     query_vector = get_query_vector(query)
@@ -48,27 +31,21 @@ def search_codebase(query, limit=3):
         contexts.append(f"--- FILE: {payload['file']} (Chunk {payload['chunk_index']}) ---\n{payload['content']}")
     return "\n\n".join(contexts)
 
-def ask_deepseek(query, context):
-    headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
-
-    system_prompt = (
-        "You are an expert C/Lua engine developer. "
-        "Use the provided code context to answer the user's question accurately and concisely."
+def ask_gemini(query, context):
+    # We can pass the system prompt directly into the model initialization
+    model = genai.GenerativeModel(
+        model_name='gemini-1.5-pro',
+        system_instruction="You are an expert C/Lua engine developer. Use the provided code context to answer the user's question accurately and concisely."
     )
 
-    user_prompt = f"RETRIEVED CODE CONTEXT:\n{context}\n\nUSER QUESTION:\n{query}"
+    prompt = f"RETRIEVED CODE CONTEXT:\n{context}\n\nUSER QUESTION:\n{query}"
 
-    payload = {
-        "messages": [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        "temperature": 0.2
-    }
-
-    res = requests.post(DEEPSEEK_URL, json=payload, headers=headers)
-    res.raise_for_status()
-    return res.json()["choices"][0]["message"]["content"]
+    # Generate the response with a low temperature for strict coding accuracy
+    response = model.generate_content(
+        prompt,
+        generation_config=genai.GenerationConfig(temperature=0.2)
+    )
+    return response.text
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -79,8 +56,8 @@ if __name__ == "__main__":
     print(f"🔍 Searching vector database for: '{query}'...")
     context = search_codebase(query)
 
-    print("🤖 Thinking...")
-    response = ask_deepseek(query, context)
+    print("🤖 Gemini is thinking...")
+    response = ask_gemini(query, context)
 
     print("\n" + "="*50)
     print(response)
