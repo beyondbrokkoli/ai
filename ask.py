@@ -13,12 +13,26 @@ API_KEY = "TEST1234"
 client = QdrantClient(url=QDRANT_URL)
 
 def get_query_vector(text):
-    headers = {"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"}
-    # Nomic uses "search_query: " for search questions
-    payload = {"input": f"search_query: {text}", "model": "nomic-embed-text-v1-5"}
-    res = requests.post(NOMIC_URL, json=payload, headers=headers)
-    res.raise_for_status()
-    return res.json()["data"][0]["embedding"]
+    response = client.models.embed_content(
+        model="text-embedding-004",
+        contents=text,
+        config=dict(task_type="RETRIEVAL_QUERY")
+    )
+    return response.embeddings[0].values
+
+def ask_gemini(query, context):
+    # Using the latest 3.5-flash model for strict coding logic
+    prompt = f"RETRIEVED CODE CONTEXT:\n{context}\n\nUSER QUESTION:\n{query}"
+
+    response = client.models.generate_content(
+        model='gemini-3.5-flash',
+        contents=prompt,
+        config=dict(
+            system_instruction="You are an expert C/Lua engine developer. Use the provided code context to answer the user's question accurately and concisely.",
+            temperature=0.2
+        )
+    )
+    return response.text
 
 def search_codebase(query, limit=3):
     query_vector = get_query_vector(query)
